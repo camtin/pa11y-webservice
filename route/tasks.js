@@ -94,6 +94,7 @@ module.exports = function(app) {
 					timeout: Joi.number().integer(),
 					wait: Joi.number().integer(),
 					url: Joi.string().required(),
+					scanSitemap: Joi.boolean(),
 					username: Joi.string().allow(''),
 					password: Joi.string().allow(''),
 					standard: Joi.string().required().valid(

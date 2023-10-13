@@ -89,6 +89,7 @@ module.exports = function(app, callback) {
 			},
 
 			// Edit a task by ID
+			// with scanSitemap - NL
 			editById: function(id, edits) {
 				const idString = id;
 				try {
@@ -100,6 +101,7 @@ module.exports = function(app, callback) {
 				const now = Date.now();
 				const taskEdits = {
 					name: edits.name,
+					name: edits.scanSitemap,
 					timeout: parseInt(edits.timeout, 10),
 					wait: parseInt(edits.wait, 10),
 					actions: edits.actions,
@@ -178,10 +180,12 @@ module.exports = function(app, callback) {
 			},
 
 			// Run a task by ID
+			// with scanSitemap - NL
 			runById: function(id) {
 				return model.getById(id).then(async task => {
 					const pa11yOptions = {
 						standard: task.standard,
+						scanSitemap: task.scanSitemap,
 						includeWarnings: true,
 						includeNotices: true,
 						timeout: (task.timeout || 30000),
@@ -211,15 +215,19 @@ module.exports = function(app, callback) {
 						pa11yOptions.hideElements = task.hideElements;
 					}
 					const pa11yResults = await pa11y(task.url, pa11yOptions);
-
+					console.log("pa11yResults complete");
 					const results = app.model.result.convertPa11y2Results(pa11yResults);
+					
 					results.task = task.id;
 					results.ignore = task.ignore;
 					const response = await app.model.result.create(results);
+					console.log("result.create complete");
+					console.log(response);
+					
 					return response;
 				})
 					.catch(error => {
-						console.error(`model:task:runById failed, with id: ${id}`);
+						console.error(`webservice:model:task:runById failed, with id: ${id}`);
 						console.error(error.message);
 						return null;
 					});
@@ -240,6 +248,10 @@ module.exports = function(app, callback) {
 					ignore: task.ignore || [],
 					actions: task.actions || []
 				};
+				//new NL
+				if (task.scanSitemap) {
+					output.scanSitemap = task.scanSitemap;
+				}
 				if (task.annotations) {
 					output.annotations = task.annotations;
 				}

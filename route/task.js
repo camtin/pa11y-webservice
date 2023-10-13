@@ -92,6 +92,7 @@ module.exports = function(app) {
 				query: Joi.object({}),
 				payload: Joi.object({
 					name: Joi.string().required(),
+					scanSitemap: Joi.boolean(),
 					timeout: Joi.number().integer(),
 					wait: Joi.number().integer(),
 					ignore: Joi.array(),
@@ -138,7 +139,7 @@ module.exports = function(app) {
 		method: 'POST',
 		path: '/tasks/{id}/run',
 		handler: async (request, reply) => {
-
+			console.log("Run"+request.params.id);
 			const task = await model.task.getById(request.params.id);
 
 			if (!task) {
@@ -146,19 +147,20 @@ module.exports = function(app) {
 			}
 
 			console.log(grey('Starting NEW to run one-off task @ %s'), new Date());
-			const executed = await model.task.runById(request.params.id);
+			//const executed = await model.task.runById(request.params.id);
+			const executed = model.task.runById(request.params.id);
 
-			if (executed) {
-				console.log(green('Finished NEW task %s'), task.id);
-			} else {
-				console.log(
-					red('Failed to finish task %s'),
-					task.id
-				);
-				return reply.response(`Failed to finish task ${task.id}`).code(500);
-			}
+			// if (executed) {
+			// 	console.log(green('Finished NEW task %s'), task.id);
+			// } else {
+			// 	console.log(
+			// 		red('Failed to finish task %s'),
+			// 		task.id
+			// 	);
+			// 	return reply.response(`Failed to finish task ${task.id}`).code(500);
+			// }
 			console.log(
-				grey('Finished running one-off task @ %s'),
+				grey('Kicked running one-off task @ %s'),
 				new Date()
 			);
 			return reply.response().code(202);

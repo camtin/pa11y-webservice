@@ -18,6 +18,7 @@ const async = require('async');
 const {green, grey, red} = require('kleur');
 const {CronJob} = require('cron');
 
+
 module.exports = initTask;
 exports.runPa11yOnTasks = runPa11yOnTasks;
 
