@@ -18,6 +18,7 @@ const {cyan, grey, red, underline} = require('kleur');
 const URL = require('url').URL;
 const config = require('./config');
 
+
 process.on('SIGINT', () => {
 	console.log('\nGracefully shutting down from SIGINT (Ctrl-C)');
 	process.exit();

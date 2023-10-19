@@ -47,6 +47,35 @@ module.exports = function(app, callback) {
 					});
 			},
 
+			// Edit a result by ID
+			editById: function(id, edits) {
+				console.log('editByID:'+id);
+				//console.log('edits',edits);
+				const idString = id;
+				try {
+					id = new ObjectID(id);
+				} catch (error) {
+					console.error('ObjectID generation failed.', error.message);
+					return null;
+				}
+				const now = Date.now();
+				const resultEdits = edits;
+				//console.log('updateOne',{_id: ObjectID(id)}, {$set: resultEdits});
+
+				return collection.updateOne({_id: ObjectID(id)}, {$set: resultEdits})
+					.then(updateCount => {
+						if (updateCount < 1) {
+							return 0;
+						}
+						return updateCount;
+					})
+					.catch(error => {
+						console.error(`model:result:editById failed, with id: ${id}`);
+						console.error(error.message);
+						return null;
+					});
+			},
+
 			// Default filter options
 			_defaultFilterOpts(opts) {
 				const now = Date.now();
@@ -190,8 +219,20 @@ module.exports = function(app, callback) {
 					},
 					results: results.issues
 				};
-			}
+			},
+			urlsToPageList(urls) {
+				console.log('urlsToPageList');
+				let pageList = [];
 
+				if(Array.isArray(urls)){
+					urls.map((url) => pageList.push({url: url, status:'New'}));
+				}
+				else {
+					pageList.push({url: urls, status:'New'});
+				}
+				console.log(pageList);
+				return pageList;
+			}
 		};
 		callback(errors, model);
 	});

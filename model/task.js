@@ -23,6 +23,9 @@ const {grey} = require('kleur');
 const {ObjectID} = require('mongodb');
 const pa11y = require('pa11y');
 
+const Sitemapper = require('sitemapper');
+const _ = require('underscore');
+
 // Task model
 module.exports = function(app, callback) {
 	app.db.collection('tasks', async function(errors, collection) {
@@ -101,7 +104,7 @@ module.exports = function(app, callback) {
 				const now = Date.now();
 				const taskEdits = {
 					name: edits.name,
-					name: edits.scanSitemap,
+					scanSitemap: edits.scanSitemap,
 					timeout: parseInt(edits.timeout, 10),
 					wait: parseInt(edits.wait, 10),
 					actions: edits.actions,
@@ -185,6 +188,9 @@ module.exports = function(app, callback) {
 				return model.getById(id).then(async task => {
 					const pa11yOptions = {
 						standard: task.standard,
+						username: task.username,
+						password: task.password,
+						email: task.email,
 						scanSitemap: task.scanSitemap,
 						includeWarnings: true,
 						includeNotices: true,
@@ -203,28 +209,91 @@ module.exports = function(app, callback) {
 					};
 
 					// eslint-disable-next-line dot-notation
-					if (task.username && task.password && !pa11yOptions.headers['Authorization']) {
-						const encodedCredentials = Buffer.from(`${task.username}:${task.password}`)
-							.toString('base64');
+					// if (task.username && task.password && !pa11yOptions.headers['Authorization']) {
+					// 	const encodedCredentials = Buffer.from(`${task.username}:${task.password}`)
+					// 		.toString('base64');
 
-						// eslint-disable-next-line dot-notation
-						pa11yOptions.headers['Authorization'] = `Basic ${encodedCredentials}`;
-					}
+					// 	// eslint-disable-next-line dot-notation
+					// 	pa11yOptions.headers['Authorization'] = `Basic ${encodedCredentials}`;
+					// }
 
 					if (task.hideElements) {
 						pa11yOptions.hideElements = task.hideElements;
 					}
-					const pa11yResults = await pa11y(task.url, pa11yOptions);
-					console.log("pa11yResults complete");
-					const results = app.model.result.convertPa11y2Results(pa11yResults);
-					
+
+					//If set to scan for sitemap, get URL list from sitemap
+					if (pa11yOptions.scanSitemap) {
+
+						//rebuild the Sitemap URL to a standard format
+						let sitemapURL = new URL(task.url);
+						sitemapURL = `${ sitemapURL.protocol }//${ sitemapURL.host }/sitemap.xml`;
+						task.url = await model.getURLsFromSitemap(sitemapURL, task.username, task.password);
+					}					
+
+
+					//push page list to DB to track progress of URLs in scan
+					let results = {};
+					const pageList = app.model.result.urlsToPageList(task.url);
+					results.pageList = pageList;
 					results.task = task.id;
 					results.ignore = task.ignore;
-					const response = await app.model.result.create(results);
-					console.log("result.create complete");
-					console.log(response);
+
+					//initial insert
+					let response = await app.model.result.create(results);
+					//console.log(response);
+					let resultsID = response.id;
+
+					//Run Pa11y and update status along the way
+					let pa11yResults = [];
+					pa11yResults.issues = [];
+
+					if(Array.isArray(task.url)){
+						console.log(`Multiple URLs found`);
+
+						// Loop through the URL array - NL
+						for(var url of task.url){
+
+							//set page to in progress
+							results.pageList.find(page => page.url === url).status = 'In Progress';
+							response = await app.model.result.editById(resultsID, results);
+
+							//run pa11y
+							let URLResults = await pa11y(url, pa11yOptions);
+
+							//set page to complete
+							results.pageList.find(page => page.url === url).status = 'Complete';
+							response = await app.model.result.editById(resultsID, results);							
+
+							//merge Pa11y Runner results with existing results
+					    pa11yResults.issues = pa11yResults.issues.concat(URLResults.issues);
+							
+						}
+
+					} else {
+						console.log(`Single URL found.`);
+						let url = task.url;
+						//set page to in progress
+						results.pageList.find(page => page.url === url).status = 'In Progress';
+						response = await app.model.result.editById(resultsID, results);
+
+						//run pa11y
+						pa11yResults = await pa11y(task.url, pa11yOptions);
+
+						//set page to complete
+						results.pageList.find(page => page.url === url).status = 'Complete';
+						response = await app.model.result.editById(resultsID, results);						
+					}
+
+					console.log("pa11yResults complete");
+					const issuesAndCount = app.model.result.convertPa11y2Results(pa11yResults);
 					
+					//merge with existing page list
+					results = {...results,...issuesAndCount};
+
+					response = await app.model.result.editById(resultsID, results);
+
 					return response;
+
 				})
 					.catch(error => {
 						console.error(`webservice:model:task:runById failed, with id: ${id}`);
@@ -304,7 +373,51 @@ module.exports = function(app, callback) {
 
 					console.log(grey(messageString));
 				};
-			}
+			},
+
+			getURLsFromSitemap: async function (url, username, password) {
+				/**
+				 * Returns a list of URLs from a given sitemap
+				 * @private
+				 * @param {String} url - The sitemap URL
+				 * @returns {Array} Returns the an array of URLs.
+				 */
+
+				let sitemapperOptions = {
+			    url: url,
+			    timeout: 15000, // 15 seconds
+			    debug: false
+				};
+
+				if (username && password) {
+					
+					const usernamePasswordBuffer = Buffer.from(
+					  `${username}:${password}`,
+					  "utf-8"
+					);
+
+					const base64UsernamePassword = usernamePasswordBuffer.toString("base64");
+
+					sitemapperOptions.requestHeaders = {
+					  'Authorization': `Basic ${base64UsernamePassword}`
+					};
+				}
+
+			  const sitemap = new Sitemapper(sitemapperOptions);
+
+			  
+			  let urls = await sitemap.fetch();
+
+			  //using underscore to reduce to only unique urls
+			  urls = _.uniq(urls.sites);
+
+			  //when debugging, limit to 3 urls
+			  urls = urls.slice(0, 3);
+
+				console.log(urls.length+" pages discovered on sitemap");
+			  return urls;
+				
+			}			
 
 		};
 		callback(errors, model);
