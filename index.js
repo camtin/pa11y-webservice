@@ -35,7 +35,7 @@ app(config, (error, initialisedApp) => {
 	dbConnectionString.password = '****';
 
 	console.log('');
-	console.log(underline(cyan('Pa11y Webservice started')));
+	console.log(underline(cyan('Millennium WCAG Webservice started')));
 	console.log(grey('mode:     %s'), process.env.NODE_ENV);
 	console.log(grey('uri:      %s'), initialisedApp.server.info.uri);
 	console.log(grey('database: %s'), dbConnectionString);
@@ -44,7 +44,7 @@ app(config, (error, initialisedApp) => {
 
 	if (error) {
 		console.error('');
-		console.error(red('Error starting Pa11y Webservice:'));
+		console.error(red('Error starting Millennium WCAG Webservice:'));
 		console.error(error.message);
 	}
 });

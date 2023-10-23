@@ -28,4 +28,5 @@ module.exports = function(app) {
 			return reply.response('Pa11y-webservice is running.  Documentation at https://github.com/pa11y/pa11y-webservice/wiki/Web-Service-Endpoints').code(200);
 		}
 	});
+
 };

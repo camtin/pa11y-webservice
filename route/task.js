@@ -47,6 +47,12 @@ module.exports = function(app) {
 				task.last_result = null;
 				if (results.length) {
 					task.last_result = results[0];
+
+					const skips = await model.skip.getByTaskId(request.params.id, request.query);
+					if (skips) {
+						results[0].skips = skips;
+					}
+
 				}
 			}
 
@@ -172,7 +178,7 @@ module.exports = function(app) {
 		}
 	});
 
-	// Get results for a task
+	// Get latest results for a task
 	server.route({
 		method: 'GET',
 		path: '/tasks/{id}/results',
@@ -182,10 +188,23 @@ module.exports = function(app) {
 				return reply.response('Not Found').code(404);
 			}
 
+			//get the results for the task
 			const results = await model.result.getByTaskId(request.params.id, request.query);
 			if (!results) {
 				return reply.response('No results found for task').code(500);
 			}
+
+			//get the skipped elements for the task
+			const skips = await model.skip.getByTaskId(request.params.id, request.query);
+			
+			console.log(skips);
+			if (skips.length) {
+				console.log("yes skips");
+				results[0].skips = skips;
+			} else {
+				console.log("no skips");
+			}
+
 			return reply.response(results).code(200);
 		},
 		options: {
@@ -212,6 +231,15 @@ module.exports = function(app) {
 			if (!result) {
 				return reply.response('Not Found').code(404);
 			}
+
+
+			//get the skipped elements for the task
+			const skips = await model.skip.getByTaskId(tid, request.query);
+			if (skips) {
+				result.skips = skips;
+			}
+
+			
 			return reply.response(result).code(200);
 		},
 		options: {
@@ -223,5 +251,85 @@ module.exports = function(app) {
 			}
 		}
 	});
+
+	// Get skipped elements for a task
+	server.route({
+		method: 'GET',
+		path: '/tasks/{id}/skips',
+		handler: async (request, reply) => {
+			const task = await model.task.getById(request.params.id);
+			if (!task) {
+				return reply.response('Not Found').code(404);
+			}
+
+			const skips = await model.skip.getByTaskId(request.params.id, request.query);
+			if (!skips) {
+				return reply.response('No skipped elements found for task').code(500);
+			}
+			return reply.response(skips).code(200);
+		},
+		options: {
+			validate: {
+				query: Joi.object({
+					from: Joi.string().isoDate(),
+					to: Joi.string().isoDate(),
+					full: Joi.boolean()
+				}),
+				payload: false
+			}
+		}
+	});
+
+
+	// Create a skipped element for a task
+	server.route({
+		method: 'POST',
+		path: '/tasks/{id}/skips',
+		handler: async (request, reply) => {
+			//confirm task exists
+			console.log("/tasks/{id}/skips");
+			
+			const task = await model.task.getById(request.params.id);
+			if (!task) {
+				console.log("No task with id"+request.params.id);
+				return reply.response('Not Found').code(404);
+			}
+
+			request.payload.task = request.params.id;
+
+			const skip = await model.skip.create(request.payload);
+
+			if (!skip) {
+				return reply.response().code(500);
+			}
+
+			return reply.response()
+				.header('Location', `http://${request.info.host}/tasks/${request.params.id}`)
+				.code(201);
+		},
+		options: {
+			validate: {
+				query: Joi.object({}),
+				payload: Joi.object({
+					code: Joi.string().required(),
+					url: Joi.string().required(),
+					selector: Joi.string().required(),
+					context: Joi.string().required(),
+					reason: Joi.string().required(),
+					description: Joi.string().required(),
+					skipAllPages: Joi.boolean(),
+					headers: [
+						Joi.string().allow(''),
+						Joi.object().pattern(/.*/, Joi.string().allow(''))
+					]
+				})
+			}
+		}
+	});
+
+
+	// Get a skipped element
+	// Edit a skipped element
+	// Remove a skipped element
 
 };

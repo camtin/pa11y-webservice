@@ -1,4 +1,4 @@
-// This file is part of Pa11y Webservice.
+// This file is part of Millennium WCAG Dashboard, a fork of the Pa11y Webservice.
 //
 // Pa11y Webservice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,29 +21,32 @@
 
 const {ObjectID} = require('mongodb');
 
-// Result model
+// Skipped Elements model
 module.exports = function(app, callback) {
-	app.db.collection('results', async (errors, collection) => {
+	app.db.collection('skips', async (errors, collection) => {
 		await collection.createIndex({
-			date: 1
+			code: 1,
+			context: 1,
+			selector: 1,
+			url: 1
 		});
 
 		const model = {
 			collection: collection,
-			// Create a result
-			create(newResult) {
-				if (!newResult.date) {
-					newResult.date = Date.now();
+			// Create a skip
+			create(newSkip) {
+				// if (!newSkip.date) {
+				// 	newSkip.date = Date.now();
+				// }
+				if (newSkip.task && !(newSkip.task instanceof ObjectID)) {
+					newSkip.task = ObjectID(newSkip.task);
 				}
-				if (newResult.task && !(newResult.task instanceof ObjectID)) {
-					newResult.task = ObjectID(newResult.task);
-				}
-				return collection.insertOne(newResult)
+				return collection.insertOne(newSkip)
 					.then(result => {
 						return model.prepareForOutput(result.ops[0]);
 					})
 					.catch(error => {
-						console.error('model:result:create failed', error.message);
+						console.error('model:skip:create failed', error.message);
 					});
 			},
 
@@ -70,7 +73,7 @@ module.exports = function(app, callback) {
 						return updateCount;
 					})
 					.catch(error => {
-						console.error(`model:result:editById failed, with id: ${id}`);
+						console.error(`model:skip:editById failed, with id: ${id}`);
 						console.error(error.message);
 						return null;
 					});
@@ -92,10 +95,10 @@ module.exports = function(app, callback) {
 			_getFiltered(opts) {
 				opts = model._defaultFilterOpts(opts);
 				const filter = {
-					date: {
-						$lt: opts.to,
-						$gt: opts.from
-					}
+					// date: {
+					// 	$lt: opts.to,
+					// 	$gt: opts.from
+					// }
 				};
 				if (opts.task) {
 					filter.task = ObjectID(opts.task);
@@ -105,12 +108,12 @@ module.exports = function(app, callback) {
 
 				return collection
 					.find(filter)
-					.sort({date: -1})
+					.sort({code: -1})
 					.limit(opts.limit || 0)
 					.toArray()
 					.then(results => results.map(prepare))
 					.catch(error => {
-						console.error('model:result:_getFiltered failed');
+						console.error('model:skip:_getFiltered failed');
 						console.error(error.message);
 					});
 			},
@@ -130,7 +133,6 @@ module.exports = function(app, callback) {
 					console.error('ObjectID generation failed.', error.message);
 					return null;
 				}
-
 				return collection.findOne({_id: id})
 					.then(result => {
 						if (result) {
@@ -139,18 +141,18 @@ module.exports = function(app, callback) {
 						return result;
 					})
 					.catch(error => {
-						console.error(`model:result:getById failed, with id: ${id}`, error.message);
+						console.error(`model:skip:getById failed, with id: ${id}`, error.message);
 						return null;
 					});
 			},
 
-			// Get results for a single task
+			// Get skips for a single task
 			getByTaskId(id, opts) {
 				opts.task = id;
 				return model._getFiltered(opts);
 			},
 
-			// Delete results for a single task
+			// Delete skips for a single task
 			deleteByTaskId(id) {
 				try {
 					id = new ObjectID(id);
@@ -161,7 +163,7 @@ module.exports = function(app, callback) {
 
 				return collection.deleteMany({task: ObjectID(id)})
 					.catch(error => {
-						console.error(`model:result:deleteByTaskId failed, with id: ${id}`);
+						console.error(`model:skip:deleteByTaskId failed, with id: ${id}`);
 						console.error(error.message);
 					});
 			},
@@ -189,7 +191,7 @@ module.exports = function(app, callback) {
 						return result;
 					})
 					.catch(error => {
-						console.error(`model:result:getByIdAndTaskId failed, with id: ${id}`);
+						console.error(`model:skip:getByIdAndTaskId failed, with id: ${id}`);
 						console.error(error.message);
 					});
 			},
@@ -203,12 +205,13 @@ module.exports = function(app, callback) {
 			prepareForFullOutput(result) {
 				return {
 					id: result._id.toString(),
-					task: result.task.toString(),
-					date: new Date(result.date).toISOString(),
-					count: result.count,
-					pageList: result.pageList,
-					ignore: result.ignore || [],
-					results: result.results || []
+					code: result.code,
+					url: result.url,
+					selector: result.selector,
+					context: result.context,
+					reason: result.reason,
+					description: result.description
+
 				};
 			},
 			convertPa11y2Results(results) {

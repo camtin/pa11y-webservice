@@ -101,7 +101,13 @@ module.exports = function(app) {
 						'Section508',
 						'WCAG2A',
 						'WCAG2AA',
-						'WCAG2AAA'
+						'WCAG2AAA',
+						'WCAG21A',
+						'WCAG21AA',
+						'WCAG21AA',
+						'WCAG22A',
+						'WCAG22AA',
+						'WCAG22AAA'
 					),
 					ignore: Joi.array(),
 					actions: Joi.array().items(Joi.string()),
