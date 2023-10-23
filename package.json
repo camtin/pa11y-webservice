@@ -29,7 +29,7 @@
     "joi": "~17.4.2",
     "kleur": "~4.1.2",
     "mongodb": "~3.6.10",
-    "pa11y": "file:../pa11y",
+    "pa11y": "git+https://github.com/camtin/pa11y.git",
     "sitemapper": "^3.2.6",
     "socket.io": "^4.7.2",
     "underscore": "^1.13.6"
